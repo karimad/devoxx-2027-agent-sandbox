@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exécuter du code d'agent IA sans lui confier les clés | Devoxx France 2027</title>
+<meta name="description" content="Support de la proposition Devoxx France 2027 : isolation du code d'agents IA sur Kubernetes agent-sandbox.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --ink: #101828;
+    --muted: #5B6677;
+    --bg: #FAFAFA;
+    --card: #FFFFFF;
+    --line: #E3E6EB;
+    --teal: #0F766E;
+    --teal-soft: #E2F1EF;
+    --amber: #B45309;
+    --amber-soft: #FBEBD6;
+    --red: #B42318;
+    --red-soft: #FBE4E1;
+    --dark: #0B0F14;
+    --dark-2: #151B23;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-snap-type: y mandatory; background: #000; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    counter-reset: s;
+    background: #000;
+  }
+  .slide {
+    container-type: size;
+    position: relative;
+    width: min(100vw, 177.78vh);
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    background: var(--bg);
+    overflow: hidden;
+    scroll-snap-align: center;
+    counter-increment: s;
+    padding: 4.6cqw 5cqw 4cqw;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide::after {
+    content: counter(s);
+    position: absolute;
+    right: 2.4cqw;
+    bottom: 1.6cqw;
+    font-size: 1.1cqw;
+    color: var(--muted);
+  }
+  .dark { background: var(--dark); color: #F4F6F8; }
+  .dark::after { color: #8A94A3; }
+
+  h1, h2 { font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; }
+  h2 { font-size: 3.5cqw; max-width: 88cqw; }
+  .body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2cqw; margin-top: 2.4cqw; }
+  p, li { font-size: 2.4cqw; line-height: 1.38; }
+  .small { font-size: 1.4cqw; color: var(--muted); line-height: 1.4; }
+  .dark .small { color: #9AA5B4; }
+  a { color: var(--teal); text-decoration: none; border-bottom: 1px solid currentColor; }
+  .dark a { color: #5EEAD4; }
+
+  /* title */
+  .title { justify-content: center; }
+  .title h1 { font-size: 5.6cqw; max-width: 80cqw; }
+  .title .sub { font-size: 2.5cqw; color: #5EEAD4; margin-top: 2.2cqw; }
+  .title .who { margin-top: 5cqw; font-size: 1.9cqw; line-height: 1.5; color: #C9D1DB; }
+  .title .who b { color: #fff; }
+
+  /* cards */
+  .grid { display: grid; gap: 2cqw; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 1.2cqw;
+    padding: 2.2cqw;
+    box-shadow: 0 0.2cqw 0.8cqw rgba(16,24,40,0.05);
+  }
+  .card h3 { font-size: 2.8cqw; margin: 1.4cqw 0 0.8cqw; }
+  .card p { font-size: 2.2cqw; color: #2B3545; }
+  .ico {
+    width: 6cqw; height: 6cqw; border-radius: 50%;
+    background: var(--teal); display: grid; place-items: center;
+  }
+  .ico svg { width: 3.2cqw; height: 3.2cqw; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.amber { background: var(--amber); }
+  .ico.red { background: var(--red); }
+  .row-card { display: flex; gap: 2cqw; align-items: flex-start; }
+  .row-card .ico { flex: none; }
+  .row-card h3 { margin-top: 0; }
+
+  /* architecture */
+  .flow { display: flex; align-items: center; gap: 1.2cqw; }
+  .node {
+    flex: 1; text-align: center; padding: 1.8cqw 1cqw;
+    border-radius: 1cqw; background: var(--card); border: 1.5px solid var(--teal);
+    font-size: 2.3cqw; font-weight: 600;
+  }
+  .node small { display: block; font-weight: 400; font-size: 1.7cqw; color: var(--muted); margin-top: 0.4cqw; }
+  .node.hot { background: var(--teal); color: #fff; }
+  .node.hot small { color: #D5EEEA; }
+  .node.warn { border-color: var(--amber); background: var(--amber-soft); }
+  .node.bad { border-color: var(--red); background: var(--red-soft); }
+  .arrow { flex: none; width: 3cqw; height: 0.25cqw; background: var(--ink); position: relative; }
+  .arrow::after {
+    content: ""; position: absolute; right: -0.1cqw; top: -0.5cqw;
+    border-left: 1cqw solid var(--ink); border-top: 0.62cqw solid transparent; border-bottom: 0.62cqw solid transparent;
+  }
+  .stat { background: var(--teal); color: #fff; border-radius: 1.2cqw; padding: 2.4cqw; }
+  .stat .big { font-size: 5.2cqw; font-weight: 700; line-height: 1.05; white-space: nowrap; }
+  .stat p { color: #E5F4F2; font-size: 1.7cqw; margin-top: 1cqw; }
+  .split { display: grid; grid-template-columns: 1.7fr 1fr; gap: 2.4cqw; align-items: center; }
+
+  /* chips */
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6cqw; }
+  .chip { background: var(--teal-soft); border-radius: 1cqw; padding: 1.8cqw; }
+  .chip b { display: block; font-size: 3cqw; color: var(--teal); margin-bottom: 0.8cqw; }
+  .chip span { font-size: 2.1cqw; color: #1E2A3B; line-height: 1.35; }
+
+  .pr { display: inline-block; background: var(--card); border: 1px solid var(--line); border-radius: 0.8cqw; padding: 1.2cqw 1.6cqw; font-size: 2cqw; }
+  .pr b { color: var(--teal); }
+
+  code, .code {
+    font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  }
+  .code {
+    background: var(--dark); color: #E6EDF3; border-radius: 1cqw; padding: 2cqw 2.4cqw;
+    font-size: 1.9cqw; line-height: 1.6; white-space: nowrap;
+  }
+  .code .k { color: #F59E0B; } .code .s { color: #5EEAD4; } .code .c { color: #8A94A3; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 2.1cqw; }
+  th { text-align: left; font-weight: 700; padding: 1.2cqw 1cqw; border-bottom: 2px solid var(--ink); }
+  td { padding: 2cqw 1cqw; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 700; }
+
+  /* timeline */
+  .tl { display: grid; gap: 1.4cqw; }
+  .tl div { display: grid; grid-template-columns: 12cqw 1fr; align-items: center; gap: 2cqw; }
+  .tl .t { background: var(--teal); color: #fff; border-radius: 0.8cqw; text-align: center; padding: 1.1cqw 0; font-weight: 700; font-size: 2.2cqw; }
+  .tl .d { font-size: 2.6cqw; }
+
+  .principle { display: flex; gap: 2.2cqw; align-items: baseline; padding: 1.8cqw 0; border-bottom: 1px solid #263140; }
+  .principle:last-child { border-bottom: 0; }
+  .principle .n { font-size: 5.4cqw; font-weight: 700; color: #5EEAD4; width: 7cqw; flex: none; }
+  .principle p { font-size: 3.4cqw; color: #F4F6F8; }
+
+  .hint { position: fixed; right: 12px; bottom: 10px; color: #9AA5B4; font-size: 12px; z-index: 5; }
+
+  @page { size: 1920px 1080px; margin: 0; }
+  @media print {
+    html { background: none; scroll-snap-type: none; }
+    body { background: none; }
+    .slide { width: 1920px; height: 1080px; aspect-ratio: auto; break-after: page; page-break-after: always; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+</svg>
+
+<!-- 1 -->
+<section class="slide dark title">
+  <h1>Exécuter du code d'agent IA sans lui confier les clés</h1>
+  <div class="sub">Retour d'expérience sur Kubernetes agent-sandbox</div>
+  <div class="who"><b>Karim Mehalebi</b>, Technical Lead<br>Devoxx France 2027 · proposition Conference (45 min) · piste Security &amp; Privacy</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <h2>Un agent qui lance du code expose vos clés cloud</h2>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card"><div class="ico"><svg><use href="#i-code"/></svg></div><h3>Code non fiable</h3><p>L'agent écrit et lance du code que personne n'a relu.</p></div>
+      <div class="card"><div class="ico amber"><svg><use href="#i-key"/></svg></div><h3>Clés à portée</h3><p>Le code tourne souvent là où se trouvent les credentials cloud.</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-clock"/></svg></div><h3>Isolation lente</h3><p>Un sandbox neuf par requête coûte 8 à 12 s de démarrage dans nos essais locaux.</p></div>
+    </div>
+    <p class="small">Question du talk : comment isoler chaque requête sans la ralentir, et sans jamais confier de clé à l'appelant ?</p>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <h2>L'agent atteint vos secrets par quatre chemins</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card row-card"><div class="ico amber"><svg><use href="#i-key"/></svg></div><div><h3>Credentials cloud</h3><p>Un token lisible par le code est une clé volée.</p></div></div>
+      <div class="card row-card"><div class="ico"><svg><use href="#i-globe"/></svg></div><div><h3>Réseau interne</h3><p>Par défaut, aucune sortie vers les plages privées (RFC 1918).</p></div></div>
+      <div class="card row-card"><div class="ico red"><svg><use href="#i-layers"/></svg></div><div><h3>Résidus entre requêtes</h3><p>Ce qui survit au nettoyage d'un pod passe à la requête suivante.</p></div></div>
+      <div class="card row-card"><div class="ico"><svg><use href="#i-users"/></svg></div><div><h3>Délégation</h3><p>Qui agit pour qui, avec quels droits, et jusqu'à quand ?</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <h2>Un sandbox par requête, des appelants sans credentials</h2>
+  <div class="body">
+    <div class="split">
+      <div style="display:grid; gap:2.2cqw;">
+        <div class="flow">
+          <div class="node">Appelant<small>aucun credential</small></div>
+          <div class="arrow"></div>
+          <div class="node">Routeur<small>délégation limitée par RBAC</small></div>
+          <div class="arrow"></div>
+          <div class="node hot">Sandbox<small>un par requête</small></div>
+        </div>
+        <div class="flow" style="justify-content:flex-end;">
+          <div class="node warn" style="flex:none; width:58%;">Pool de pods préchauffés<small>réserve de sandbox déjà démarrés</small></div>
+        </div>
+      </div>
+      <div class="stat"><div class="big">8-12 s<br>→ &lt; 500 ms</div><p>Démarrage d'un sandbox avec le pool préchauffé. Mesures sur cluster local.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <h2>Le chargement des credentials IRSA se teste sans compte AWS</h2>
+  <div class="body">
+    <div class="split">
+      <div style="display:grid; gap:1.6cqw;">
+        <p>Un exemple basé sur LocalStack, qui fonctionne sur n'importe quel cluster local.</p>
+        <p>Il vérifie que les pods du sandbox chargent leurs credentials comme sur AWS.</p>
+        <p class="small" style="font-size:1.7cqw;"><b>Limite :</b> LocalStack simule AWS, il ne prouve pas l'authentification STS réelle.</p>
+      </div>
+      <div class="card"><p class="small">Contribution upstream</p><p style="font-weight:700; margin:0.6cqw 0;">kubernetes-sigs/agent-sandbox</p><p><a href="https://github.com/kubernetes-sigs/agent-sandbox/pull/1340">PR #1340</a>, mergée le 6 août 2026</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <h2>Un vérificateur rejette les tokens forgés</h2>
+  <div class="body">
+    <div class="chips">
+      <div class="chip"><b>Signature</b><span>Signé par la clé attendue</span></div>
+      <div class="chip"><b>Issuer</b><span>Émis par l'émetteur de confiance</span></div>
+      <div class="chip"><b>Audience</b><span>Destiné à ce service</span></div>
+      <div class="chip"><b>Expiration</b><span>Encore valide</span></div>
+    </div>
+    <p style="font-size:2.3cqw;">Durcissements testés de bout en bout : confusion d'algorithme, TLS sur les deux sauts, durée de vie du cache JWKS.</p>
+    <div><span class="pr">kubernetes-sigs/agent-sandbox · <a href="https://github.com/kubernetes-sigs/agent-sandbox/pull/1579">PR #1579</a>, mergée le 28 septembre 2026</span></div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <h2>Nettoyer un pod ne suffit pas à révoquer ses credentials</h2>
+  <div class="body">
+    <div class="flow">
+      <div class="node">Requête A<small>credentials chargés</small></div>
+      <div class="arrow"></div>
+      <div class="node warn">Clean()<small>la spécification ne mentionne pas les credentials</small></div>
+      <div class="arrow"></div>
+      <div class="node bad">Requête B<small>résidu observé dans le pod réutilisé</small></div>
+    </div>
+    <p>Écart reproduit sur un pool de pods préchauffés réel (EKS Anywhere). Un nettoyage côté appelant le comble : vérifié.</p>
+    <p class="small">Référence : KEP-539.2, spécification de Clean() dans agent-sandbox.</p>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <h2>Des règles deny inopérantes laissaient tout passer</h2>
+  <div class="body">
+    <div class="split" style="grid-template-columns: 1.15fr 0.85fr;">
+      <div class="code"><span class="c"># schéma simplifié</span><br><span class="k">deny</span> if command <span class="k">contains</span> <span class="s">"rm -rf"</span></div>
+      <div style="display:grid; gap:1.2cqw;">
+        <div class="node warn" style="flex:none;">Opérateur <code>contains</code> absent du DSL</div>
+        <div class="node warn" style="flex:none;">La règle ne se déclenche jamais</div>
+        <div class="node bad" style="flex:none;">L'action est autorisée</div>
+      </div>
+    </div>
+    <p>Correctif : <code>contains</code>, <code>startswith</code> et <code>endswith</code> ajoutés au DSL (<a href="https://github.com/microsoft/agent-governance-toolkit/pull/3924">PR #3924</a>, mergée le 15 septembre 2026).</p>
+    <p class="small" style="font-size:1.7cqw;">Le même schéma est revenu dans d'autres couches du même projet : callbacks et appels asynchrones.</p>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="slide dark">
+  <h2>Règle de conception : en cas d'erreur, bloquer</h2>
+  <div class="body" style="gap:0;">
+    <div class="principle"><div class="n">1</div><p>Une règle impossible à évaluer refuse l'action.</p></div>
+    <div class="principle"><div class="n">2</div><p>On teste le chemin d'erreur autant que le chemin nominal.</p></div>
+    <div class="principle"><div class="n">3</div><p>Chaque requête repart d'un état propre, sans credentials.</p></div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <h2>Contributions upstream</h2>
+  <div class="body">
+    <table>
+      <thead><tr><th>Projet</th><th>PR</th><th>Sujet</th><th>Mergée le</th></tr></thead>
+      <tbody>
+        <tr><td>kubernetes-sigs/agent-sandbox</td><td><a href="https://github.com/kubernetes-sigs/agent-sandbox/pull/1340">#1340</a></td><td>Simulation d'IRSA en local avec LocalStack</td><td>6 août 2026</td></tr>
+        <tr><td>kubernetes-sigs/agent-sandbox</td><td><a href="https://github.com/kubernetes-sigs/agent-sandbox/pull/1579">#1579</a></td><td>Vérification de confiance du WebIdentityToken</td><td>28 septembre 2026</td></tr>
+        <tr><td>microsoft/agent-governance-toolkit</td><td><a href="https://github.com/microsoft/agent-governance-toolkit/pull/3924">#3924</a></td><td>Opérateurs contains, startswith, endswith dans le DSL de politiques</td><td>15 septembre 2026</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Source : GitHub, état vérifié le 23 novembre 2026.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <h2>Plan du talk (45 min)</h2>
+  <div class="body">
+    <div class="tl">
+      <div><span class="t">0 à 5</span><span class="d">Le problème et le modèle de menace</span></div>
+      <div><span class="t">5 à 15</span><span class="d">Architecture : sandbox par requête, pool préchauffé, RBAC</span></div>
+      <div><span class="t">15 à 25</span><span class="d">IRSA sans AWS et rejet des tokens forgés</span></div>
+      <div><span class="t">25 à 33</span><span class="d">Les credentials qui survivent au nettoyage</span></div>
+      <div><span class="t">33 à 41</span><span class="d">Le fail-open : un garde-fou qui laisse passer</span></div>
+      <div><span class="t">41 à 45</span><span class="d">Règles de conception et questions</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="slide dark title">
+  <h1>Questions</h1>
+  <div class="who">
+    <b>Karim Mehalebi</b>, Technical Lead<br>
+    GitHub : <a href="https://github.com/karimad">github.com/karimad</a><br>
+    Medium : <a href="https://medium.com/@kmehaleb">medium.com/@kmehaleb</a><br>
+    Article : « Running AI Agent Code Safely on Kubernetes » (août 2026)
+  </div>
+</section>
+
+<div class="hint">← → pour naviguer</div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    function current() {
+      var mid = window.innerHeight / 2, best = 0, d = 1e9;
+      slides.forEach(function (s, i) {
+        var r = s.getBoundingClientRect(), c = Math.abs(r.top + r.height / 2 - mid);
+        if (c < d) { d = c; best = i; }
+      });
+      return best;
+    }
+    function go(i) {
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      slides[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].indexOf(e.key) > -1) { e.preventDefault(); go(current() + 1); }
+      if (['ArrowLeft', 'ArrowUp', 'PageUp'].indexOf(e.key) > -1) { e.preventDefault(); go(current() - 1); }
+      if (e.key === 'Home') go(0);
+      if (e.key === 'End') go(slides.length - 1);
+    });
+  })();
+</script>
+</body>
+</html>
